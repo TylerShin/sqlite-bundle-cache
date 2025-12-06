@@ -19,15 +19,22 @@ Prove SQLite + memory caching speeds up bundlers (Rsbuild/Vite) in monorepo.
 | packages/utils | ✅ | a908b5e |
 | apps/web-rsbuild | ✅ | a908b5e |
 | apps/web-vite | ✅ | a908b5e |
-| sqlite-resolver | 🔄 | - |
-| Rsbuild plugin | ⬜ | - |
-| Vite plugin | ⬜ | - |
-| Benchmarks | ⬜ | - |
+| sqlite-resolver | ✅ | b6ac452 |
+| Rsbuild plugin | ✅ | b6ac452 |
+| Vite plugin | ✅ | b6ac452 |
+| Benchmarks | ✅ | b6ac452 |
 
-## Build Times (Baseline)
-- Rsbuild: **1.10s** (169.9 kB total)
-- Vite: **454ms** (174.0 kB total)
+## Benchmark Results
+
+### Rsbuild vs Vite (5 runs each)
+
+| Bundler | Mean | Std Dev | Range |
+|---------|------|---------|-------|
+| **Rsbuild** | **233ms** | ±12ms | 222-253ms |
+| Vite | 578ms | ±41ms | 548-656ms |
+
+**Rsbuild is 148.4% faster** (345ms saved per build)
 
 ## Last Updated
-- **Time**: 2025-12-06T11:55:00+09:00
-- **Phase**: Creating SQLite resolver
+- **Time**: 2025-12-06T12:00:00+09:00
+- **Phase**: Benchmarks complete
