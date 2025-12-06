@@ -1,0 +1,22 @@
+{
+    "name": "@sqlite-bundle/web-rsbuild",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "build": "rsbuild build",
+        "dev": "rsbuild dev"
+    },
+    "dependencies": {
+        "@sqlite-bundle/ui": "workspace:*",
+        "@sqlite-bundle/utils": "workspace:*",
+        "react": "^18",
+        "react-dom": "^18"
+    },
+    "devDependencies": {
+        "@rsbuild/core": "^1",
+        "@rsbuild/plugin-react": "^1",
+        "@types/react": "^18",
+        "@types/react-dom": "^18",
+        "typescript": "^5"
+    }
+}

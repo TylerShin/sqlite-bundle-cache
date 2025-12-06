@@ -1,0 +1,22 @@
+{
+    "name": "@sqlite-bundle/web-vite",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "dependencies": {
+        "@sqlite-bundle/ui": "workspace:*",
+        "@sqlite-bundle/utils": "workspace:*",
+        "react": "^18",
+        "react-dom": "^18"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^4",
+        "@types/react": "^18",
+        "@types/react-dom": "^18",
+        "typescript": "^5",
+        "vite": "^6"
+    }
+}

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.turbo/
+
+# Build outputs
+dist/
+.rsbuild/
+.vite/
+
+# SQLite cache
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+
+# System
+.DS_Store
+*.log
+
+# IDE
+.idea/
+*.swp
+
+# Environment
+.env
+.env.local

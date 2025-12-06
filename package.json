@@ -1,0 +1,20 @@
+{
+  "name": "sqlite-bundle",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "benchmark:baseline": "bun run benchmarks/baseline.ts",
+    "benchmark:sqlite": "bun run benchmarks/sqlite.ts",
+    "benchmark:compare": "bun run benchmarks/compare.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "turbo": "^2",
+    "typescript": "^5"
+  }
+}
