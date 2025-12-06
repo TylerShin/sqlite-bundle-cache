@@ -1,52 +1,82 @@
 import { useState } from 'react';
-import { Button, Card, Input, Modal } from '@sqlite-bundle/ui';
-import { formatDate, capitalize, truncate } from '@sqlite-bundle/utils';
+import {
+  Button, Card, Input, Modal, Avatar, Badge, Checkbox,
+  Dropdown, Tabs, Toast, Tooltip, Dialog, Accordion, Table, Pagination
+} from '@sqlite-bundle/ui';
+import {
+  formatDate, formatRelative, capitalize, truncate, slugify,
+  debounce, cn, clamp, randomInt, formatNumber,
+  isEmail, isEmpty, deepClone, chunk, unique
+} from '@sqlite-bundle/utils';
+import { Dashboard } from './pages/Dashboard';
+import { Settings } from './pages/Settings';
+import { Users } from './pages/Users';
 
 function App() {
-  const [modalOpen, setModalOpen] = useState(false);
-  const [inputValue, setInputValue] = useState('');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [showToast, setShowToast] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', content: <Dashboard /> },
+    { id: 'users', label: 'Users', content: <Users /> },
+    { id: 'settings', label: 'Settings', content: <Settings /> },
+  ];
 
   return (
     <div className="app">
       <header className="header">
-        <h1>SQLite Bundle PoC - Vite</h1>
-        <p>Built with Vite + SQLite Cache experiment</p>
+        <div className="header-left">
+          <h1>SQLite Bundle PoC - Vite</h1>
+          <Badge variant="success">v1.0.0</Badge>
+        </div>
+        <div className="header-right">
+          <Tooltip content="View profile">
+            <Avatar fallback="JD" size="md" />
+          </Tooltip>
+        </div>
       </header>
 
+      <nav className="nav">
+        <Tabs tabs={tabs} />
+      </nav>
+
       <main className="main">
-        <Card title="Date Utility Demo" description="Using @sqlite-bundle/utils">
-          <p>Today: {formatDate(new Date())}</p>
-        </Card>
-
-        <Card title="String Utility Demo">
-          <p>Capitalized: {capitalize('hello world')}</p>
-          <p>Truncated: {truncate('This is a very long text that should be truncated', 30)}</p>
-        </Card>
-
-        <Card title="UI Components">
-          <Input
-            label="Enter something"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Type here..."
-          />
-          <div className="button-group">
-            <Button variant="primary" onClick={() => setModalOpen(true)}>
-              Open Modal
-            </Button>
-            <Button variant="secondary">Secondary</Button>
-            <Button variant="outline">Outline</Button>
-          </div>
-        </Card>
+        {tabs.find(t => t.id === activeTab)?.content}
       </main>
 
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title="Hello from Modal"
+      <footer className="footer">
+        <p>Built on {formatDate(new Date())}</p>
+        <Button variant="outline" size="sm" onClick={() => setShowToast(true)}>
+          Show Toast
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => setDialogOpen(true)}>
+          Open Dialog
+        </Button>
+      </footer>
+
+      {showToast && (
+        <Toast 
+          message="This is a notification!" 
+          type="success" 
+          onClose={() => setShowToast(false)} 
+        />
+      )}
+
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title="Example Dialog"
+        description="This is a sample dialog component."
+        footer={
+          <div className="dialog-buttons">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button variant="primary" onClick={() => setDialogOpen(false)}>Confirm</Button>
+          </div>
+        }
       >
-        <p>You entered: {inputValue || '(nothing yet)'}</p>
-      </Modal>
+        <p>Dialog content goes here.</p>
+      </Dialog>
     </div>
   );
 }

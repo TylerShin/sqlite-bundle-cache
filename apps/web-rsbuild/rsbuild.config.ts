@@ -1,15 +1,11 @@
 import { defineConfig } from '@rsbuild/core';
 import { pluginReact } from '@rsbuild/plugin-react';
-import { createRsbuildPlugin } from '@sqlite-bundle/sqlite-resolver/rsbuild';
 
-const useSqliteCache = process.env.USE_SQLITE_CACHE === 'true';
+// Note: SQLite resolver plugin is tested separately via resolution-bench.ts
+// due to jiti loader incompatibility with bun:sqlite
 
 export default defineConfig({
-  plugins: [
-    pluginReact(),
-    // SQLite cache plugin (enabled via env var)
-    ...(useSqliteCache ? [createRsbuildPlugin({ verbose: true })] : []),
-  ],
+  plugins: [pluginReact()],
   source: {
     entry: {
       index: './src/index.tsx',

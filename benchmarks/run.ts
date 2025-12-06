@@ -1,12 +1,14 @@
 /**
- * Benchmark runner for SQLite resolver cache PoC
+ * Advanced Benchmark: Cold Build / Warm Build / Watch Mode
  * 
- * Usage:
- *   bun run benchmarks/run.ts [baseline|sqlite|full]
+ * Tests three scenarios:
+ * 1. Cold build - no cache, first run
+ * 2. Warm build - with cache, rebuild
+ * 3. Watch mode - file change detection time
  */
 
-import { spawn } from 'bun';
-import { rmSync, existsSync, mkdirSync } from 'fs';
+import { spawn, spawnSync } from 'bun';
+import { rmSync, existsSync, appendFileSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = join(import.meta.dir, '..');
@@ -14,227 +16,180 @@ const RUNS = 5;
 
 interface BenchmarkResult {
   name: string;
+  app: string;
+  scenario: string;
   times: number[];
   mean: number;
-  min: number;
-  max: number;
   stdDev: number;
 }
 
-interface FullReport {
-  timestamp: string;
-  baseline: {
-    rsbuild: BenchmarkResult;
-    vite: BenchmarkResult;
-  };
-  withSqlite: {
-    rsbuild: BenchmarkResult;
-    vite: BenchmarkResult;
-  };
-  improvements: {
-    rsbuild: number;
-    vite: number;
-  };
+function cleanCaches(app: 'web-rsbuild' | 'web-vite') {
+  const appDir = join(ROOT, 'apps', app);
+  const caches = ['dist', '.rsbuild', '.vite', 'node_modules/.cache'];
+  for (const cache of caches) {
+    const p = join(appDir, cache);
+    if (existsSync(p)) rmSync(p, { recursive: true });
+  }
+  // Clean turbo cache
+  const turbo = join(ROOT, '.turbo');
+  if (existsSync(turbo)) rmSync(turbo, { recursive: true });
 }
 
-async function runBuild(
-  app: 'web-rsbuild' | 'web-vite', 
-  useSqliteCache: boolean,
-  clean = false
-): Promise<number> {
+async function runBuild(app: 'web-rsbuild' | 'web-vite'): Promise<number> {
   const appDir = join(ROOT, 'apps', app);
-  
-  if (clean) {
-    // Clean build caches
-    const cachePaths = [
-      join(appDir, 'dist'),
-      join(appDir, '.rsbuild'),
-      join(appDir, '.vite'),
-      join(appDir, '.sqlite-cache'),
-    ];
-    for (const p of cachePaths) {
-      if (existsSync(p)) rmSync(p, { recursive: true });
-    }
-  }
-
   const start = performance.now();
+  
   const proc = spawn({
     cmd: ['bun', 'run', 'build'],
     cwd: appDir,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: {
-      ...process.env,
-      USE_SQLITE_CACHE: useSqliteCache ? 'true' : 'false',
-    },
   });
   
   await proc.exited;
   return performance.now() - start;
 }
 
+async function measureWatchMode(app: 'web-rsbuild' | 'web-vite'): Promise<number> {
+  const appDir = join(ROOT, 'apps', app);
+  const testFile = join(appDir, 'src', 'pages', 'Dashboard.tsx');
+  const originalContent = readFileSync(testFile, 'utf-8');
+  
+  // Start dev server
+  const devCmd = app === 'web-rsbuild' ? 'rsbuild' : 'vite';
+  const proc = spawn({
+    cmd: ['bunx', devCmd, 'dev'],
+    cwd: appDir,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  
+  // Wait for server to start
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // Make a change and measure rebuild time
+  const changeMarker = `\n// Benchmark change: ${Date.now()}`;
+  const start = performance.now();
+  
+  appendFileSync(testFile, changeMarker);
+  
+  // Wait for rebuild (indicated by output)
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  const elapsed = performance.now() - start;
+  
+  // Restore original file
+  writeFileSync(testFile, originalContent);
+  
+  // Kill dev server
+  proc.kill();
+  await proc.exited;
+  
+  return elapsed;
+}
+
 async function benchmark(
   name: string,
   app: 'web-rsbuild' | 'web-vite',
-  useSqliteCache: boolean,
-  runs: number,
-  coldStart = false
+  scenario: 'cold' | 'warm' | 'watch',
+  runs: number
 ): Promise<BenchmarkResult> {
-  console.log(`\n📊 Benchmarking: ${name}`);
+  console.log(`\n📊 ${name}`);
   const times: number[] = [];
 
   for (let i = 0; i < runs; i++) {
-    const time = await runBuild(app, useSqliteCache, coldStart && i === 0);
+    let time: number;
+    
+    if (scenario === 'cold') {
+      cleanCaches(app);
+      time = await runBuild(app);
+    } else if (scenario === 'warm') {
+      if (i === 0) {
+        // First run to warm up cache
+        await runBuild(app);
+      }
+      time = await runBuild(app);
+    } else {
+      // watch mode
+      time = await measureWatchMode(app);
+    }
+    
     times.push(time);
-    process.stdout.write(`  Run ${i + 1}/${runs}: ${time.toFixed(0)}ms\n`);
+    console.log(`  Run ${i + 1}/${runs}: ${time.toFixed(0)}ms`);
   }
 
   const mean = times.reduce((a, b) => a + b, 0) / times.length;
-  const min = Math.min(...times);
-  const max = Math.max(...times);
   const variance = times.reduce((sum, t) => sum + (t - mean) ** 2, 0) / times.length;
   const stdDev = Math.sqrt(variance);
 
-  return { name, times, mean, min, max, stdDev };
+  return { name, app, scenario, times, mean, stdDev };
 }
 
-function printResult(result: BenchmarkResult) {
-  console.log(`  ${result.name}:`);
-  console.log(`    Mean:   ${result.mean.toFixed(0)}ms ± ${result.stdDev.toFixed(0)}ms`);
-  console.log(`    Range:  ${result.min.toFixed(0)}ms - ${result.max.toFixed(0)}ms`);
-}
+function printResults(results: BenchmarkResult[]) {
+  console.log('\n═══════════════════════════════════════════════════════');
+  console.log('  BENCHMARK RESULTS');
+  console.log('═══════════════════════════════════════════════════════\n');
 
-function printComparison(baseline: BenchmarkResult, withCache: BenchmarkResult) {
-  const diff = ((withCache.mean - baseline.mean) / baseline.mean) * 100;
-  const isFaster = diff < 0;
-  const improvement = Math.abs(diff);
+  // Group by scenario
+  const scenarios = ['cold', 'warm', 'watch'] as const;
   
-  console.log(`    ${isFaster ? '✅' : '❌'} ${isFaster ? 'Faster' : 'Slower'} by ${improvement.toFixed(1)}%`);
-  console.log(`    Time ${isFaster ? 'saved' : 'added'}: ${Math.abs(withCache.mean - baseline.mean).toFixed(0)}ms`);
-  
-  return diff;
-}
-
-async function runBaseline() {
-  console.log('\n═══════════════════════════════════════');
-  console.log('  BASELINE (No SQLite Cache)');
-  console.log('═══════════════════════════════════════');
-  
-  const rsbuild = await benchmark('Rsbuild Baseline', 'web-rsbuild', false, RUNS, true);
-  const vite = await benchmark('Vite Baseline', 'web-vite', false, RUNS, true);
-
-  console.log('\n📈 Baseline Results:');
-  printResult(rsbuild);
-  printResult(vite);
-
-  return { rsbuild, vite };
-}
-
-async function runWithSqlite() {
-  console.log('\n═══════════════════════════════════════');
-  console.log('  WITH SQLite CACHE');
-  console.log('═══════════════════════════════════════');
-  
-  const rsbuild = await benchmark('Rsbuild + SQLite', 'web-rsbuild', true, RUNS, true);
-  const vite = await benchmark('Vite + SQLite', 'web-vite', true, RUNS, true);
-
-  console.log('\n📈 SQLite Cache Results:');
-  printResult(rsbuild);
-  printResult(vite);
-
-  return { rsbuild, vite };
-}
-
-async function runFullComparison() {
-  console.log('\n🔬 FULL A/B COMPARISON');
-  console.log('Testing with and without SQLite cache\n');
-  
-  // Clean everything first
-  console.log('🧹 Cleaning all caches...');
-  const appDirs = ['web-rsbuild', 'web-vite'];
-  for (const app of appDirs) {
-    const appDir = join(ROOT, 'apps', app);
-    for (const cache of ['dist', '.rsbuild', '.vite', '.sqlite-cache']) {
-      const p = join(appDir, cache);
-      if (existsSync(p)) rmSync(p, { recursive: true });
+  for (const scenario of scenarios) {
+    const scenarioResults = results.filter(r => r.scenario === scenario);
+    if (scenarioResults.length === 0) continue;
+    
+    console.log(`📦 ${scenario.toUpperCase()} ${scenario === 'cold' ? 'BUILD' : scenario === 'warm' ? 'REBUILD' : 'MODE'}:`);
+    
+    for (const r of scenarioResults) {
+      const bundler = r.app === 'web-rsbuild' ? 'Rsbuild' : 'Vite';
+      console.log(`  ${bundler}: ${r.mean.toFixed(0)}ms ± ${r.stdDev.toFixed(0)}ms`);
+    }
+    
+    // Compare
+    const rsbuild = scenarioResults.find(r => r.app === 'web-rsbuild');
+    const vite = scenarioResults.find(r => r.app === 'web-vite');
+    
+    if (rsbuild && vite) {
+      const diff = ((vite.mean - rsbuild.mean) / rsbuild.mean) * 100;
+      const winner = diff > 0 ? 'Rsbuild' : 'Vite';
+      console.log(`  → ${winner} is ${Math.abs(diff).toFixed(1)}% faster\n`);
     }
   }
-  
-  // Clean turbo cache
-  const turboCache = join(ROOT, '.turbo');
-  if (existsSync(turboCache)) rmSync(turboCache, { recursive: true });
-
-  // Run baseline
-  const baseline = await runBaseline();
-  
-  // Clean again before SQLite test
-  console.log('\n🧹 Cleaning caches before SQLite test...');
-  for (const app of appDirs) {
-    const appDir = join(ROOT, 'apps', app);
-    for (const cache of ['dist', '.rsbuild', '.vite', '.sqlite-cache']) {
-      const p = join(appDir, cache);
-      if (existsSync(p)) rmSync(p, { recursive: true });
-    }
-  }
-  
-  // Run with SQLite
-  const withSqlite = await runWithSqlite();
-
-  // Print comparison
-  console.log('\n═══════════════════════════════════════');
-  console.log('  COMPARISON RESULTS');
-  console.log('═══════════════════════════════════════');
-  
-  console.log('\n🏗️ Rsbuild:');
-  console.log(`  Baseline:    ${baseline.rsbuild.mean.toFixed(0)}ms`);
-  console.log(`  With SQLite: ${withSqlite.rsbuild.mean.toFixed(0)}ms`);
-  const rsbuildImprovement = printComparison(baseline.rsbuild, withSqlite.rsbuild);
-  
-  console.log('\n⚡ Vite:');
-  console.log(`  Baseline:    ${baseline.vite.mean.toFixed(0)}ms`);
-  console.log(`  With SQLite: ${withSqlite.vite.mean.toFixed(0)}ms`);
-  const viteImprovement = printComparison(baseline.vite, withSqlite.vite);
-  
-  console.log('\n📊 Bundler Comparison (with SQLite):');
-  const bundlerDiff = ((withSqlite.vite.mean - withSqlite.rsbuild.mean) / withSqlite.rsbuild.mean) * 100;
-  console.log(`  Rsbuild is ${bundlerDiff.toFixed(1)}% faster than Vite`);
-
-  // Save report
-  const report: FullReport = {
-    timestamp: new Date().toISOString(),
-    baseline: {
-      rsbuild: baseline.rsbuild,
-      vite: baseline.vite,
-    },
-    withSqlite: {
-      rsbuild: withSqlite.rsbuild,
-      vite: withSqlite.vite,
-    },
-    improvements: {
-      rsbuild: -rsbuildImprovement,
-      vite: -viteImprovement,
-    },
-  };
-
-  const reportPath = join(ROOT, 'benchmark-results.json');
-  await Bun.write(reportPath, JSON.stringify(report, null, 2));
-  console.log(`\n💾 Full report saved to: ${reportPath}`);
-  
-  return report;
 }
 
 // Main
-const mode = process.argv[2] || 'full';
+console.log('═══════════════════════════════════════════════════════');
+console.log('  ADVANCED BUNDLER BENCHMARK');
+console.log('  Cold Build / Warm Rebuild / Watch Mode');
+console.log('═══════════════════════════════════════════════════════');
 
-switch (mode) {
-  case 'baseline':
-    await runBaseline();
-    break;
-  case 'sqlite':
-    await runWithSqlite();
-    break;
-  case 'full':
-  default:
-    await runFullComparison();
-    break;
+const results: BenchmarkResult[] = [];
+
+// Cold builds
+console.log('\n🧊 COLD BUILD (no cache)');
+results.push(await benchmark('Rsbuild Cold', 'web-rsbuild', 'cold', RUNS));
+results.push(await benchmark('Vite Cold', 'web-vite', 'cold', RUNS));
+
+// Warm builds
+console.log('\n🔥 WARM REBUILD (with cache)');
+results.push(await benchmark('Rsbuild Warm', 'web-rsbuild', 'warm', RUNS));
+results.push(await benchmark('Vite Warm', 'web-vite', 'warm', RUNS));
+
+// Watch mode (optional, takes longer)
+const testWatch = process.argv.includes('--watch');
+if (testWatch) {
+  console.log('\n👁️ WATCH MODE (file change)');
+  results.push(await benchmark('Rsbuild Watch', 'web-rsbuild', 'watch', 3));
+  results.push(await benchmark('Vite Watch', 'web-vite', 'watch', 3));
 }
+
+printResults(results);
+
+// Save results
+const report = {
+  timestamp: new Date().toISOString(),
+  runsPerScenario: RUNS,
+  results,
+};
+
+const reportPath = join(ROOT, 'advanced-benchmark.json');
+await Bun.write(reportPath, JSON.stringify(report, null, 2));
+console.log(`\n💾 Results saved to: ${reportPath}`);
