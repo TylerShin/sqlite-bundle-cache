@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-12-06T03:13:33.933Z",
+  "iterations": 1000,
+  "modulesPerIteration": 9,
+  "results": {
+    "fileSystem": {
+      "name": "File System (stat + read each time)",
+      "iterations": 9000,
+      "totalMs": 74.099583,
+      "avgMicros": 8.233287
+    },
+    "sqliteCold": {
+      "name": "SQLite Cache (cold start)",
+      "iterations": 9000,
+      "totalMs": 4.0902499999999975,
+      "avgMicros": 0.45447222222222194
+    },
+    "sqliteWarm": {
+      "name": "SQLite Cache (memory)",
+      "iterations": 9000,
+      "totalMs": 3.730458000000013,
+      "avgMicros": 0.41449533333333477
+    }
+  },
+  "improvements": {
+    "coldVsFs": 94.48006340332576,
+    "warmVsFs": 94.9656153935441,
+    "speedupFactor": 19.863400955056925
+  }
+}

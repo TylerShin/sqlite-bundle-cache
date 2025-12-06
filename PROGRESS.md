@@ -24,17 +24,34 @@ Prove SQLite + memory caching speeds up bundlers (Rsbuild/Vite) in monorepo.
 | Vite plugin | ✅ | b6ac452 |
 | Benchmarks | ✅ | b6ac452 |
 
-## Benchmark Results
+---
 
-### Rsbuild vs Vite (5 runs each)
+## 🚀 Key Results
 
-| Bundler | Mean | Std Dev | Range |
-|---------|------|---------|-------|
-| **Rsbuild** | **233ms** | ±12ms | 222-253ms |
-| Vite | 578ms | ±41ms | 548-656ms |
+### Module Resolution Benchmark (9000 operations)
 
-**Rsbuild is 148.4% faster** (345ms saved per build)
+| Method | Avg Time | Ops/sec | vs FS |
+|--------|----------|---------|-------|
+| File System | 8.23μs | 121K | baseline |
+| SQLite Cold | 0.45μs | 2.2M | **94.5% faster** |
+| SQLite Warm | 0.41μs | 2.4M | **95.0% faster** |
+
+> **🏆 SQLite is 19.9x faster than file system**
+
+### Bundler Comparison (5 runs)
+
+| Bundler | Mean | vs Other |
+|---------|------|----------|
+| Rsbuild | 233ms | **148% faster** |
+| Vite | 578ms | baseline |
+
+---
+
+## Commits
+1. `a908b5e`: init: monorepo setup
+2. `b6ac452`: feat: add sqlite-resolver and benchmarks  
+3. `583b03d`: docs: update progress
 
 ## Last Updated
-- **Time**: 2025-12-06T12:00:00+09:00
-- **Phase**: Benchmarks complete
+- **Time**: 2025-12-06T12:15:00+09:00
+- **Phase**: Benchmarks complete ✅
