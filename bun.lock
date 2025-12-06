@@ -14,6 +14,7 @@
       "name": "@sqlite-bundle/web-rsbuild",
       "version": "0.0.1",
       "dependencies": {
+        "@sqlite-bundle/sqlite-resolver": "workspace:*",
         "@sqlite-bundle/ui": "workspace:*",
         "@sqlite-bundle/utils": "workspace:*",
         "react": "^18",
@@ -31,6 +32,7 @@
       "name": "@sqlite-bundle/web-vite",
       "version": "0.0.1",
       "dependencies": {
+        "@sqlite-bundle/sqlite-resolver": "workspace:*",
         "@sqlite-bundle/ui": "workspace:*",
         "@sqlite-bundle/utils": "workspace:*",
         "react": "^18",
@@ -40,6 +42,16 @@
         "@types/react": "^18",
         "@types/react-dom": "^18",
         "@vitejs/plugin-react": "^4",
+        "typescript": "^5",
+        "vite": "^6",
+      },
+    },
+    "packages/sqlite-resolver": {
+      "name": "@sqlite-bundle/sqlite-resolver",
+      "version": "0.0.1",
+      "devDependencies": {
+        "@rsbuild/core": "^1",
+        "@types/bun": "latest",
         "typescript": "^5",
         "vite": "^6",
       },
@@ -271,6 +283,8 @@
     "@rspack/lite-tapable": ["@rspack/lite-tapable@1.1.0", "", {}, "sha512-E2B0JhYFmVAwdDiG14+DW0Di4Ze4Jg10Pc4/lILUrd5DRCaklduz2OvJ5HYQ6G+hd+WTzqQb3QnDNfK4yvAFYw=="],
 
     "@rspack/plugin-react-refresh": ["@rspack/plugin-react-refresh@1.5.3", "", { "dependencies": { "error-stack-parser": "^2.1.4", "html-entities": "^2.6.0" }, "peerDependencies": { "react-refresh": ">=0.10.0 <1.0.0", "webpack-hot-middleware": "2.x" }, "optionalPeers": ["webpack-hot-middleware"] }, "sha512-VOnQMf3YOHkTqJ0+BJbrYga4tQAWNwoAnkgwRauXB4HOyCc5wLfBs9DcOFla/2usnRT3Sq6CMVhXmdPobwAoTA=="],
+
+    "@sqlite-bundle/sqlite-resolver": ["@sqlite-bundle/sqlite-resolver@workspace:packages/sqlite-resolver"],
 
     "@sqlite-bundle/ui": ["@sqlite-bundle/ui@workspace:packages/ui"],
 

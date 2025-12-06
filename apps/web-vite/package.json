@@ -7,6 +7,7 @@
         "dev": "vite"
     },
     "dependencies": {
+        "@sqlite-bundle/sqlite-resolver": "workspace:*",
         "@sqlite-bundle/ui": "workspace:*",
         "@sqlite-bundle/utils": "workspace:*",
         "react": "^18",
